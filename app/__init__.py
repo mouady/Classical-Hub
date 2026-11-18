@@ -31,6 +31,7 @@ def create_app(config_name: str = "development") -> Flask:
 
     ConfigManager(app).load_config(config_name=config_name)
     _apply_database_port(app)
+    _apply_database_tls(app)
     db.init_app(app)
     migrate.init_app(app, db)
 
@@ -68,6 +69,19 @@ def _apply_database_port(app: Flask) -> None:
     except ValueError as exc:
         raise RuntimeError(f"MARIADB_PORT must be an integer, got {port!r}") from exc
     app.config["SQLALCHEMY_DATABASE_URI"] = url.set(port=port_number).render_as_string(hide_password=False)
+
+
+def _apply_database_tls(app: Flask) -> None:
+    """Use a trusted CA and verify the database hostname when TLS is configured."""
+    ca_file = os.getenv("MARIADB_SSL_CA")
+    uri = app.config.get("SQLALCHEMY_DATABASE_URI")
+    if not ca_file or not uri:
+        return
+
+    url = make_url(uri)
+    if url.drivername in ("mysql+pymysql", "mariadb+pymysql"):
+        url = url.update_query_dict({"ssl_ca": ca_file, "ssl_check_hostname": "true"})
+        app.config["SQLALCHEMY_DATABASE_URI"] = url.render_as_string(hide_password=False)
 
 
 def _setup_jinja_globals(app: Flask) -> None:

@@ -33,7 +33,7 @@ ENV PIP_ROOT_USER_ACTION=ignore
 # and libstdc++, which python-sat's extension links against, already ship in
 # the base image.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends mariadb-client \
+    && apt-get install -y --no-install-recommends ca-certificates mariadb-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
