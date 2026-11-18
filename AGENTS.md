@@ -1,0 +1,1 @@
+La fuente de la verdad en este proyecto se puede conseguir en la documentación de la asignatura https://egc.us.es/cursos/egc-20262027. Tambien ver en development/2026_EGC_apuntes-v10.pdf en cuanto a EGCFlow, que es de obligatorio cumplimiento.
