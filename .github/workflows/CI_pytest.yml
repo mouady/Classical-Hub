@@ -1,6 +1,6 @@
 # ----------------------------------------------------------------------------
 # Run Tests Workflow
-# This workflow runs pytest on every push and pull request (targeting main).
+# This workflow runs pytest on pushes to task branches, trunk, and main.
 # It sets up a MariaDB service container and configures environment
 # variables for both the service and the test environment.
 # ----------------------------------------------------------------------------
@@ -9,9 +9,15 @@ name: Pytest
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
+      - trunk
+      - 'feat/**'
+      - 'docs/**'
+      - 'style/**'
+      - 'refactor/**'
+      - 'test/**'
+      - 'fix/**'
 
 jobs:
   pytest:
