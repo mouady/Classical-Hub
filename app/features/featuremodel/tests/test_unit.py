@@ -3,6 +3,7 @@
 import pytest
 
 from app.features.dataset.models import PublicationType
+from app.features.featuremodel.dataset_type import UVLDatasetType
 from app.features.featuremodel.models import FeatureModel, FMMetaData, FMMetrics
 
 pytestmark = pytest.mark.unit
@@ -37,3 +38,20 @@ def test_fm_meta_data_keeps_the_publication_type_enum_member():
     )
     assert meta_data.publication_type is PublicationType.BOOK
     assert meta_data.publication_type.value == "book"
+
+
+def test_uvl_dataset_type_accepts_valid_uvl_files(tmp_path):
+    uvl = tmp_path / "model.uvl"
+    uvl.write_text("features\n\tRoot\n")
+
+    dataset_type = UVLDatasetType()
+
+    assert dataset_type.accepts(uvl.name)
+    assert dataset_type.validate(str(uvl)) == []
+
+
+def test_uvl_dataset_type_reports_syntax_errors(tmp_path):
+    uvl = tmp_path / "broken.uvl"
+    uvl.write_text("this is { not uvl\n")
+
+    assert UVLDatasetType().validate(str(uvl))

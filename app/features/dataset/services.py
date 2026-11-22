@@ -9,6 +9,7 @@ from flask import request
 from splent_framework.services.BaseService import BaseService
 
 from app.features.auth.services import AuthenticationService
+from app.features.dataset.dataset_types import DEFAULT_DATASET_TYPE, get_dataset_type
 from app.features.dataset.models import DataSet, DSMetaData, DSViewRecord
 from app.features.dataset.repositories import (
     AuthorRepository,
@@ -133,13 +134,17 @@ class DataSetService(BaseService):
     def update_dsmetadata(self, id, **kwargs):
         return self.dsmetadata_repository.update(id, **kwargs)
 
-    def save_temp_uvl(self, file, current_user) -> dict:
-        """Persist an uploaded UVL file under the current user's temp folder.
+    def save_temp_file(self, file, current_user, dataset_type_name: str = DEFAULT_DATASET_TYPE) -> dict:
+        """Persist an uploaded file under the current user's temp folder.
 
         Disambiguates collisions by appending ``" (n)"`` until the name is
         free. Returns a result dict the route turns into JSON.
         """
-        if not file or not file.filename.endswith(".uvl"):
+        dataset_type = get_dataset_type(dataset_type_name)
+        if dataset_type is None:
+            return {"status": "error", "code": 400, "message": f"Unknown dataset type: {dataset_type_name}"}
+
+        if not file or not dataset_type.accepts(file.filename):
             return {"status": "error", "code": 400, "message": "No valid file"}
 
         temp_folder = current_user.temp_folder()
@@ -160,15 +165,28 @@ class DataSetService(BaseService):
         except Exception as exc:
             return {"status": "error", "code": 500, "message": str(exc)}
 
+        try:
+            errors = dataset_type.validate(target)
+        except Exception as exc:
+            errors = [str(exc)]
+        if errors:
+            os.remove(target)
+            return {
+                "status": "error",
+                "code": 400,
+                "message": f"{dataset_type.label} not valid: {file.filename}",
+                "errors": errors,
+            }
+
         return {
             "status": "ok",
             "code": 200,
-            "message": "UVL uploaded and validated successfully",
+            "message": f"{dataset_type.label} uploaded and validated successfully",
             "filename": filename,
         }
 
     def delete_temp_file(self, filename: str, current_user) -> dict:
-        """Remove a previously-uploaded UVL from the user's temp folder."""
+        """Remove a previously-uploaded file from the user's temp folder."""
         if not filename:
             return {"status": "error", "code": 400, "error": "Error: filename missing"}
         target = os.path.join(current_user.temp_folder(), filename)

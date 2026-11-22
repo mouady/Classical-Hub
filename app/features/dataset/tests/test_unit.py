@@ -10,6 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.features.dataset import dataset_types as dataset_types_module
+from app.features.dataset.dataset_types import DatasetType, dataset_types, get_dataset_type, register_dataset_type
 from app.features.dataset.forms import DataSetForm
 from app.features.dataset.models import DataSet, PublicationType
 from app.features.dataset.services import SizeService, calculate_checksum_and_size
@@ -94,3 +96,36 @@ def test_files_and_sizes_are_aggregated_across_feature_models():
 def test_publication_type_none_is_the_documented_default_value():
     assert PublicationType.NONE.value == "none"
     assert PublicationType("article") is PublicationType.JOURNAL_ARTICLE
+
+
+class _FakeDatasetType(DatasetType):
+    name = "fake"
+    label = "Fake"
+    extensions = (".fake", ".fk")
+
+    def validate(self, path):
+        return []
+
+
+def test_dataset_type_accepts_only_its_extensions_case_insensitively():
+    dataset_type = _FakeDatasetType()
+
+    assert dataset_type.accepts("model.fake")
+    assert dataset_type.accepts("MODEL.FK")
+    assert not dataset_type.accepts("model.uvl")
+    assert not dataset_type.accepts("")
+
+
+def test_dataset_type_accepted_files_joins_extensions_for_dropzone():
+    assert _FakeDatasetType().accepted_files() == ".fake,.fk"
+
+
+def test_registered_dataset_types_can_be_looked_up_by_name(monkeypatch):
+    monkeypatch.setattr(dataset_types_module, "_registry", {})
+    fake = _FakeDatasetType()
+
+    register_dataset_type(fake)
+
+    assert get_dataset_type("fake") is fake
+    assert get_dataset_type("missing") is None
+    assert dataset_types() == [fake]

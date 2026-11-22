@@ -14,6 +14,7 @@ from flask import (
 from flask_login import current_user, login_required
 
 from app.features.dataset import dataset_bp
+from app.features.dataset.dataset_types import DEFAULT_DATASET_TYPE, get_dataset_type
 from app.features.dataset.forms import DataSetForm
 from app.features.dataset.services import (
     DataSetService,
@@ -35,7 +36,11 @@ ds_view_record_service = DSViewRecordService()
 @dataset_bp.route("/dataset/upload", methods=["GET"])
 @login_required
 def create_dataset():
-    return render_template("dataset/upload_dataset.html", form=DataSetForm())
+    return render_template(
+        "dataset/upload_dataset.html",
+        form=DataSetForm(),
+        dataset_type=get_dataset_type(DEFAULT_DATASET_TYPE),
+    )
 
 
 @dataset_bp.route("/dataset/upload", methods=["POST"])
@@ -62,10 +67,12 @@ def list_dataset():
 @dataset_bp.route("/dataset/file/upload", methods=["POST"])
 @login_required
 def upload():
-    result = dataset_service.save_temp_uvl(request.files.get("file"), current_user)
+    dataset_type_name = request.form.get("dataset_type", DEFAULT_DATASET_TYPE)
+    result = dataset_service.save_temp_file(request.files.get("file"), current_user, dataset_type_name)
     payload = {"message": result["message"]}
-    if "filename" in result:
-        payload["filename"] = result["filename"]
+    for key in ("filename", "errors"):
+        if key in result:
+            payload[key] = result[key]
     return jsonify(payload), result["code"]
 
 

@@ -142,11 +142,11 @@ def test_create_cookie_registers_a_single_view_per_cookie(test_app, clean_databa
             assert service.count() == 2
 
 
-def test_save_temp_uvl_rejects_files_that_are_not_uvl(test_app, clean_database, monkeypatch, tmp_path):
+def test_save_temp_file_rejects_files_that_are_not_uvl(test_app, clean_database, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     with test_app.app_context():
         owner = _make_user("owner@example.com")
-        result = DataSetService().save_temp_uvl(_uvl_upload("notes.txt"), owner)
+        result = DataSetService().save_temp_file(_uvl_upload("notes.txt"), owner)
 
         assert result["status"] == "error"
         assert result["code"] == 400
@@ -154,15 +154,15 @@ def test_save_temp_uvl_rejects_files_that_are_not_uvl(test_app, clean_database, 
         assert not os.path.isdir(owner.temp_folder())
 
 
-def test_save_temp_uvl_disambiguates_repeated_filenames(test_app, clean_database, monkeypatch, tmp_path):
+def test_save_temp_file_disambiguates_repeated_filenames(test_app, clean_database, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     with test_app.app_context():
         owner = _make_user("owner@example.com")
         service = DataSetService()
 
-        first = service.save_temp_uvl(_uvl_upload("model.uvl"), owner)
-        second = service.save_temp_uvl(_uvl_upload("model.uvl"), owner)
-        third = service.save_temp_uvl(_uvl_upload("model.uvl"), owner)
+        first = service.save_temp_file(_uvl_upload("model.uvl"), owner)
+        second = service.save_temp_file(_uvl_upload("model.uvl"), owner)
+        third = service.save_temp_file(_uvl_upload("model.uvl"), owner)
 
         assert first["filename"] == "model.uvl"
         assert second["filename"] == "model (1).uvl"
@@ -176,7 +176,7 @@ def test_delete_temp_file_removes_an_uploaded_file(test_app, clean_database, mon
         owner = _make_user("owner@example.com")
         service = DataSetService()
 
-        saved = service.save_temp_uvl(_uvl_upload("model.uvl"), owner)
+        saved = service.save_temp_file(_uvl_upload("model.uvl"), owner)
         assert os.path.exists(os.path.join(owner.temp_folder(), saved["filename"]))
 
         deleted = service.delete_temp_file(saved["filename"], owner)
@@ -218,3 +218,27 @@ def test_build_download_archive_yields_an_empty_zip_when_nothing_was_uploaded(
         with ZipFile(os.path.join(tmp_dir, zip_name)) as archive:
             assert archive.namelist() == []
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def test_save_temp_file_rejects_and_discards_invalid_uvl(test_app, clean_database, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    with test_app.app_context():
+        owner = _make_user("owner@example.com")
+
+        result = DataSetService().save_temp_file(_uvl_upload("broken.uvl", b"this is { not uvl\n"), owner)
+
+        assert result["code"] == 400
+        assert result["message"] == "UVL not valid: broken.uvl"
+        assert result["errors"]
+        assert os.listdir(owner.temp_folder()) == []
+
+
+def test_save_temp_file_rejects_unknown_dataset_types(test_app, clean_database, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    with test_app.app_context():
+        owner = _make_user("owner@example.com")
+
+        result = DataSetService().save_temp_file(_uvl_upload("model.uvl"), owner, "unknown")
+
+        assert result["code"] == 400
+        assert result["message"] == "Unknown dataset type: unknown"

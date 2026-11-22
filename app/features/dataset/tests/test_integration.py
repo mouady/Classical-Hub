@@ -191,6 +191,31 @@ def test_temp_uvl_file_can_be_uploaded_and_then_deleted(test_client, monkeypatch
     assert missing.get_json()["error"] == "Error: File not found"
 
 
+def test_temp_file_upload_rejects_uvl_with_syntax_errors(test_client, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    _signup(test_client)
+
+    response = test_client.post(
+        "/dataset/file/upload",
+        data={"file": (io.BytesIO(b"this is { not uvl\n"), "broken.uvl"), "dataset_type": "uvl"},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    body = response.get_json()
+    assert body["message"] == "UVL not valid: broken.uvl"
+    assert body["errors"]
+
+
+def test_upload_page_configures_dropzone_from_the_dataset_type(test_client):
+    _signup(test_client)
+
+    page = test_client.get("/dataset/upload").get_data(as_text=True)
+
+    assert "acceptedFiles: '.uvl'" in page
+    assert "params: {dataset_type: 'uvl'}" in page
+
+
 def test_temp_file_delete_redirects_anonymous_visitors_to_login(test_client):
     response = test_client.post("/dataset/file/delete", json={"file": "model.uvl"}, follow_redirects=False)
 
